@@ -6,15 +6,22 @@ if Rails.env.production? || Rails.env.staging?
     # Use (Logstash flavored) JSON
     config.lograge.formatter = Lograge::Formatters::Logstash.new
 
-    # Keep the verbose logs for full debugging (locally)
-    config.lograge.keep_original_rails_log = true
-
     # The new logs are shipped to stdout for collection
     config.lograge.logger = ActiveSupport::Logger.new(STDOUT)
 
     # Add custom fields
     config.lograge.custom_options = lambda do |event|
+      case
+      when event.payload[:status] == 200
+        level = "INFO"
+      when event.payload[:status] == 302
+        level = "WARN"
+      else
+        level = "ERROR"
+      end
       {
+        source: "unicorn",
+        level: level,
         params: event.payload[:params].except('controller', 'action', 'format', 'utf8'),
         client_ip: event.payload[:client_ip],
         user_agent: event.payload[:user_agent],
